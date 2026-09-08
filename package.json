@@ -1,0 +1,42 @@
+{
+  "name": "sih26047",
+  "version": "1.0.0",
+  "description": "Patient case taking software.",
+  "main": "server.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "generate": "prisma generate",
+    "dev": "tsx watch ./server.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adityajain256/SIH26047.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/adityajain256/SIH26047/issues"
+  },
+  "homepage": "https://github.com/adityajain256/SIH26047#readme",
+  "devDependencies": {
+    "@tsconfig/node22": "^22.0.6",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^26.4.1",
+    "@types/pg": "^8.23.1",
+    "nodemon": "^3.1.14",
+    "prisma": "^7.10.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.23.0"
+  }
+}
