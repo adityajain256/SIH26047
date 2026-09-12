@@ -2,6 +2,12 @@ import express from "express";
 import prisma from "../../lib/prisma.js";
 import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
+import { UserRole } from "../generated/prisma/enums.js";
+
+const userRoles = [UserRole.ADMIN, UserRole.STAFF, UserRole.DOCTOR, UserRole.PATIENT] as const;
+type UserRoleValue = (typeof userRoles)[number];
+const isUserRole = (value: unknown): value is UserRoleValue =>
+  typeof value === "string" && userRoles.includes(value.toUpperCase() as UserRoleValue);
 
 export const authRegister = async (
   req: express.Request,
@@ -19,13 +25,20 @@ export const authRegister = async (
     department,
   } = req.body;
   try {
-    if (!name || !email || !password) {
+    const normalizedRole = typeof role === "string" ? role.toUpperCase() : role;
+    if (!name || !email || !phone || !password || !isUserRole(normalizedRole)) {
       return res
         .status(400)
-        .json({ message: "Name, email, and password are required." });
+        .json({ message: "Name, email, phone, password, and a valid role are required." });
     }
+    if (normalizedRole === "DOCTOR" && !licenceNumber) return res.status(400).json({ message: "A licence number is required for doctors." });
+    const birthDate = DOB ? new Date(DOB) : undefined;
+    if (birthDate && Number.isNaN(birthDate.getTime())) return res.status(400).json({ message: "A valid date of birth is required." });
+    const secret = process.env.JWT_SECRET;
+    if (!secret) return res.status(500).json({ message: "JWT secret is not configured." });
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const normalizedEmail = email.trim().toLowerCase();
+    const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) {
       return res.status(409).json({ message: "Email is already registered." });
     }
@@ -37,21 +50,15 @@ export const authRegister = async (
       data: {
         name,
         licenceNumber,
-        email,
+        email: normalizedEmail,
         gender,
         department,
-        DOB,
-        phoneNumber: phone,
+        ...(birthDate ? { DOB: birthDate } : {}),
+        phoneNumber: phone.trim(),
         hashedPassword: `${salt}:${passwordHash}`,
-        role,
+        role: normalizedRole,
       },
     });
-
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      console.error("JWT secret is not configured.");
-      return res.status(500).json({ message: "JWT secret is not configured." });
-    }
 
     const token = jwt.sign(
       { sub: user.id, email: user.email, role: user.role },
@@ -80,7 +87,7 @@ export const authLogin = async (
   req: express.Request,
   res: express.Response,
 ) => {
-  const { email, password } = req.body;
+    const { email, password } = req.body;
 
   try {
     if (!email || !password) {
@@ -89,7 +96,7 @@ export const authLogin = async (
         .json({ message: "Email and password are required." });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
     if (!user) {
       return res.status(401).json({ message: "Invalid email or password." });
     }

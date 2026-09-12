@@ -10,7 +10,7 @@ const patientRoute = express.Router();
 
 patientRoute.get("/", getAllPatients);
 
-patientRoute.get("/:doctorId", getPatientsByDoctorId);
+patientRoute.get("/doctor/:doctorId", getPatientsByDoctorId);
 
 patientRoute.get("/:id", getPatientById);
 

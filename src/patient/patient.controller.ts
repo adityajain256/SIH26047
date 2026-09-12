@@ -1,4 +1,5 @@
 import express from "express";
+import crypto from "node:crypto";
 import prisma from "../../lib/prisma.js";
 
 export const getAllPatients = async (
@@ -20,11 +21,8 @@ export const getPatientsByDoctorId = async (
 ) => {
   try {
     const doctorId = Number(req.params.doctorId);
-    const patients = await prisma.patient.findUnique({
-      where: {
-        userId: doctorId,
-      },
-    });
+    if (!Number.isInteger(doctorId) || doctorId < 1) return res.status(400).json({ message: "A valid doctor ID is required." });
+    const patients = await prisma.patient.findMany({ where: { userId: doctorId } });
     return res.status(200).json(patients);
   } catch (error) {
     console.error("Error fetching patients:", error);
@@ -37,12 +35,14 @@ export const getPatientById = async (
   res: express.Response,
 ) => {
   const patientId = Number(req.params.id);
+  if (!Number.isInteger(patientId) || patientId < 1) return res.status(400).json({ message: "A valid patient ID is required." });
   try {
     const patient = await prisma.patient.findUnique({
       where: {
         id: patientId,
       },
     });
+    if (!patient) return res.status(404).json({ message: "Patient not found." });
     return res.status(200).json(patient);
   } catch (error) {
     console.error("Error fetching patient:", error);
@@ -67,31 +67,38 @@ export const registerPatient = async (
   } = req.body;
 
   try {
-    if (!name || !phone || !doctorId) {
+    if (!name || !email || !phone || !DOB || !adhaarNumber || !gender || !preferredLanguage) {
       return res.status(400).json({ message: "All fields are required." });
     }
 
-    const existingPatient = await prisma.patient.findFirst({
-      where: { adhaarNumber: adhaarNumber },
-    });
+    const birthDate = new Date(DOB);
+    if (Number.isNaN(birthDate.getTime())) return res.status(400).json({ message: "A valid date of birth is required." });
+    const assignedDoctorId = doctorId === undefined || doctorId === null || doctorId === "" ? undefined : Number(doctorId);
+    if (assignedDoctorId !== undefined && (!Number.isInteger(assignedDoctorId) || assignedDoctorId < 1)) return res.status(400).json({ message: "A valid doctor ID is required." });
+
+    const existingPatient = await prisma.patient.findUnique({ where: { adhaarNumber } });
 
     if (existingPatient) {
       return res.status(409).json({ message: "Patient already exists." });
     }
 
+    if (assignedDoctorId !== undefined) {
+      const doctor = await prisma.user.findUnique({ where: { id: assignedDoctorId } });
+      if (!doctor || doctor.role !== "DOCTOR") return res.status(400).json({ message: "The assigned doctor was not found." });
+    }
+
     const newPatient = await prisma.patient.create({
       data: {
-        name,
-        email,
-        phoneNumber: phone,
-        DOB,
+        medikioskId: `PT-${crypto.randomBytes(3).toString("hex").toUpperCase()}`,
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        phoneNumber: phone.trim(),
+        DOB: birthDate,
         adhaarNumber,
-        abhaId,
+        ...(abhaId ? { abhaId } : {}),
         gender,
         preferredLanguage,
-        user: {
-          connect: { id: Number(doctorId) },
-        },
+        ...(assignedDoctorId !== undefined ? { user: { connect: { id: assignedDoctorId } } } : {}),
       },
     });
 

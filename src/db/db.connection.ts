@@ -1,12 +1,12 @@
 import prisma from "../../lib/prisma.js";
 
-const dbConnection = () => {
+const dbConnection = async () => {
   try {
-    prisma.$connect();
+    await prisma.$connect();
     console.log("Database connection established successfully.");
   } catch (error) {
     console.error("Error connecting to the database:", error);
-    process.exit(1); // Exit the process with an error code
+    throw error;
   }
 };
 
